@@ -80,21 +80,32 @@ static gboolean unbind_device(int bus_num, guint8 addr) {
     gchar device_id[32];
     g_snprintf(device_id, sizeof(device_id), "%d-%04x", bus_num, addr);
 
-    GError* error = NULL;
-    gboolean success = g_file_set_contents(unbind_path, device_id, -1, &error);
+    // sysfs requires direct write, not g_file_set_contents which tries to create temp file
+    int fd = open(unbind_path, O_WRONLY);
+    if (fd < 0) {
+        gchar* err_msg = g_strdup_printf("Failed to open %s: %s", unbind_path, strerror(errno));
+        syslog(LOG_ERR, "%s", err_msg);
+        printf("%s\n", err_msg);
+        g_free(err_msg);
+        g_free(driver_name);
+        return FALSE;
+    }
+
+    ssize_t len = strlen(device_id);
+    ssize_t written = write(fd, device_id, len);
+    close(fd);
+
+    gboolean success = (written == len);
 
     if (success) {
         syslog(LOG_INFO, "Unbound device %s from driver %s", device_id, driver_name);
     } else {
         gchar* err_msg = g_strdup_printf("Failed to unbind device %s from driver %s: %s",
                                          device_id, driver_name,
-                                         error ? error->message : "unknown error");
+                                         written < 0 ? strerror(errno) : "incomplete write");
         syslog(LOG_ERR, "%s", err_msg);
         printf("%s\n", err_msg);
         g_free(err_msg);
-        if (error) {
-            g_error_free(error);
-        }
     }
 
     g_free(driver_name);
@@ -108,21 +119,31 @@ static gboolean rebind_device(int bus_num, guint8 addr, const gchar* driver_name
     gchar device_id[32];
     g_snprintf(device_id, sizeof(device_id), "%d-%04x", bus_num, addr);
 
-    GError* error = NULL;
-    gboolean success = g_file_set_contents(bind_path, device_id, -1, &error);
+    // sysfs requires direct write, not g_file_set_contents which tries to create temp file
+    int fd = open(bind_path, O_WRONLY);
+    if (fd < 0) {
+        gchar* err_msg = g_strdup_printf("Failed to open %s: %s", bind_path, strerror(errno));
+        syslog(LOG_ERR, "%s", err_msg);
+        printf("%s\n", err_msg);
+        g_free(err_msg);
+        return FALSE;
+    }
+
+    ssize_t len = strlen(device_id);
+    ssize_t written = write(fd, device_id, len);
+    close(fd);
+
+    gboolean success = (written == len);
 
     if (success) {
         syslog(LOG_INFO, "Bound device %s to driver %s", device_id, driver_name);
     } else {
         gchar* err_msg = g_strdup_printf("Failed to bind device %s to driver %s: %s",
                                          device_id, driver_name,
-                                         error ? error->message : "unknown error");
+                                         written < 0 ? strerror(errno) : "incomplete write");
         syslog(LOG_ERR, "%s", err_msg);
         printf("%s\n", err_msg);
         g_free(err_msg);
-        if (error) {
-            g_error_free(error);
-        }
     }
 
     return success;
