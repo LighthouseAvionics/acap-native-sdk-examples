@@ -1,0 +1,28 @@
+{
+	"schemaVersion": "1.8.0",
+	"resources": {
+		"linux": {
+			"user": {
+				"groups": ["gpio"]
+			}
+		}
+	},
+	"acapPackageConf": {
+		"setup": {
+			"appName": "lrf_controller",
+			"vendor": "Axis Communications",
+			"embeddedSdkVersion": "3.0",
+			"runMode": "respawn",
+			"version": "1.0.0"
+		},
+		"configuration": {
+			"reverseProxy": [
+				{
+					"apiPath": "lrf_controller/lrf",
+					"target": "http://localhost:8080",
+					"access": "admin"
+				}
+			]
+		}
+	}
+}
