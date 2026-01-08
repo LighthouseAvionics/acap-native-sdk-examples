@@ -91,19 +91,9 @@ static int raw_i2c_transaction(int fd, guint8 addr __attribute__((unused)), stru
         .nmsgs = num_msgs
     };
 
-    // Set alarm for this operation
-    i2c_timeout_flag = 0;
-    alarm(I2C_ALARM_SECONDS);
-
+    // Don't use alarm() here - it interferes with the ioctl
+    // Instead rely on I2C_TIMEOUT which is set on the file descriptor
     int result = ioctl(fd, I2C_RDWR, &ioctl_data);
-
-    // Cancel alarm
-    alarm(0);
-
-    if (i2c_timeout_flag) {
-        errno = ETIMEDOUT;
-        return -1;
-    }
 
     return result;
 }
@@ -119,6 +109,11 @@ static int do_raw_read(int bus_num, guint8 addr, int count) {
         return EXIT_FAILURE;
     }
 
+    // Set I2C timeout and retries
+    unsigned long timeout = (I2C_TIMEOUT_MS + 9) / 10;
+    ioctl(fd, I2C_TIMEOUT, timeout);
+    ioctl(fd, I2C_RETRIES, I2C_RETRY_COUNT);
+
     guint8 read_buf[256];
     if (count > 256) count = 256;
 
@@ -131,24 +126,11 @@ static int do_raw_read(int bus_num, guint8 addr, int count) {
         }
     };
 
-    // Setup alarm handler
-    struct sigaction sa;
-    sa.sa_handler = i2c_alarm_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGALRM, &sa, NULL);
-
     int result = raw_i2c_transaction(fd, addr, msgs, 1);
-
-    signal(SIGALRM, SIG_DFL);
     close(fd);
 
     if (result < 0) {
-        if (errno == ETIMEDOUT) {
-            printf("Error: Timeout reading from device\n");
-        } else {
-            printf("Error: Failed to read: %s\n", strerror(errno));
-        }
+        printf("Error: Failed to read: %s\n", strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -173,6 +155,11 @@ static int do_raw_write(int bus_num, guint8 addr, guint8* data, int count) {
         return EXIT_FAILURE;
     }
 
+    // Set I2C timeout and retries
+    unsigned long timeout = (I2C_TIMEOUT_MS + 9) / 10;
+    ioctl(fd, I2C_TIMEOUT, timeout);
+    ioctl(fd, I2C_RETRIES, I2C_RETRY_COUNT);
+
     struct i2c_msg msgs[1] = {
         {
             .addr = addr,
@@ -182,24 +169,11 @@ static int do_raw_write(int bus_num, guint8 addr, guint8* data, int count) {
         }
     };
 
-    // Setup alarm handler
-    struct sigaction sa;
-    sa.sa_handler = i2c_alarm_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGALRM, &sa, NULL);
-
     int result = raw_i2c_transaction(fd, addr, msgs, 1);
-
-    signal(SIGALRM, SIG_DFL);
     close(fd);
 
     if (result < 0) {
-        if (errno == ETIMEDOUT) {
-            printf("Error: Timeout writing to device\n");
-        } else {
-            printf("Error: Failed to write: %s\n", strerror(errno));
-        }
+        printf("Error: Failed to write: %s\n", strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -223,6 +197,11 @@ static int do_raw_write_read(int bus_num, guint8 addr, guint8 reg, int count) {
         return EXIT_FAILURE;
     }
 
+    // Set I2C timeout and retries
+    unsigned long timeout = (I2C_TIMEOUT_MS + 9) / 10;
+    ioctl(fd, I2C_TIMEOUT, timeout);
+    ioctl(fd, I2C_RETRIES, I2C_RETRY_COUNT);
+
     guint8 read_buf[256];
     if (count > 256) count = 256;
 
@@ -241,24 +220,11 @@ static int do_raw_write_read(int bus_num, guint8 addr, guint8 reg, int count) {
         }
     };
 
-    // Setup alarm handler
-    struct sigaction sa;
-    sa.sa_handler = i2c_alarm_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGALRM, &sa, NULL);
-
     int result = raw_i2c_transaction(fd, addr, msgs, 2);
-
-    signal(SIGALRM, SIG_DFL);
     close(fd);
 
     if (result < 0) {
-        if (errno == ETIMEDOUT) {
-            printf("Error: Timeout in write-read transaction\n");
-        } else {
-            printf("Error: Failed write-read: %s\n", strerror(errno));
-        }
+        printf("Error: Failed write-read: %s\n", strerror(errno));
         return EXIT_FAILURE;
     }
 
