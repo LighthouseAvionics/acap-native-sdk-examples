@@ -1,19 +1,16 @@
 {
 	"schemaVersion": "1.8.0",
-	"resources": {
-		"linux": {
-			"user": {
-				"groups": ["gpio"]
-			}
-		}
-	},
 	"acapPackageConf": {
 		"setup": {
 			"appName": "i2c_unbind",
 			"vendor": "Axis Communications",
 			"embeddedSdkVersion": "3.0",
 			"runMode": "never",
-			"version": "1.0.0"
+			"version": "1.0.1",
+			"user": {
+				"username": "root",
+				"group": "root"
+			}
 		}
 	}
 }
