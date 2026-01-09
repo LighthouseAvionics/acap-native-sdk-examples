@@ -1,0 +1,33 @@
+{
+	"schemaVersion": "1.8.0",
+	"resources": {
+		"linux": {
+			"user": {
+				"groups": ["gpio"]
+			}
+		},
+		"dbus": {
+			"requiredMethods": [
+				"com.axis.HTTPConf1.VAPIXServiceAccounts1.GetCredentials"
+			]
+		}
+	},
+	"acapPackageConf": {
+		"setup": {
+			"appName": "axis_lh_server",
+			"vendor": "Axis Communications",
+			"embeddedSdkVersion": "3.0",
+			"runMode": "respawn",
+			"version": "1.1.0"
+		},
+		"configuration": {
+			"reverseProxy": [
+				{
+					"apiPath": "axis_lh_server/api",
+					"target": "http://localhost:8080",
+					"access": "admin"
+				}
+			]
+		}
+	}
+}

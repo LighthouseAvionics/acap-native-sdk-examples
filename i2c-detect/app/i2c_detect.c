@@ -271,6 +271,7 @@ int main(void) {
     int bus_num;
     int buses_found = 0;
 
+    openlog("i2c_detect", LOG_PID, LOG_USER);
     syslog(LOG_INFO, "Starting I2C Detect application");
 
     /* Scan for available I2C buses */
