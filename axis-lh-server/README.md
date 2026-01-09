@@ -1,6 +1,6 @@
-# LRF Controller
+# Axis LH Server
 
-This example demonstrates how to control a Laser Rangefinder (LRF) over I2C through HTTP requests using an ACAP application. The application acts as a reverse proxy that allows HTTP clients to communicate with an LRF device connected to an Axis camera's I2C bus.
+This ACAP application provides health monitoring and metrics collection for Axis PTZ cameras, with additional support for controlling a Laser Rangefinder (LRF) over I2C. It exposes Prometheus-compatible metrics and victor-health JSON endpoints for integration with monitoring systems.
 
 ## Use Case
 
@@ -16,9 +16,9 @@ Replace a stock Axis IR board with a custom PCB containing a Laser Rangefinder. 
 ## File Structure
 
 ```
-lrf-controller/
+axis-lh-server/
 ├── app/
-│   ├── lrf_controller.c    # Main application with CivetWeb server and request handlers
+│   ├── axis_lh_server.c    # Main application with CivetWeb server and request handlers
 │   ├── i2c_lrf.h           # I2C LRF abstraction header
 │   ├── i2c_lrf.c           # I2C LRF implementation
 │   ├── LICENSE             # Apache 2.0 License
@@ -31,7 +31,7 @@ lrf-controller/
 ## How It Works
 
 1. The ACAP application starts a CivetWeb server on port 8080
-2. The manifest.json configures Apache reverse proxy to route `/local/lrf_controller/lrf/*` to `http://localhost:8080`
+2. The manifest.json configures Apache reverse proxy to route `/local/axis_lh_server/api/*` to `http://localhost:8080`
 3. The application opens an I2C connection to the LRF device at startup
 4. HTTP requests are handled by endpoint-specific handlers that:
    - Parse request data (JSON for POST requests)
@@ -45,15 +45,15 @@ The application can be built for different architectures using Docker:
 ### For ARM32 (armv7hf)
 
 ```bash
-docker build --build-arg ARCH=armv7hf -t lrf-controller:armv7hf .
-docker cp $(docker create lrf-controller:armv7hf):/opt/app/lrf_controller_1_0_0_armv7hf.eap .
+docker build --build-arg ARCH=armv7hf -t axis-lh-server:armv7hf .
+docker cp $(docker create axis-lh-server:armv7hf):/opt/app/axis_lh_server_1_1_0_armv7hf.eap .
 ```
 
 ### For ARM64 (aarch64)
 
 ```bash
-docker build --build-arg ARCH=aarch64 -t lrf-controller:aarch64 .
-docker cp $(docker create lrf-controller:aarch64):/opt/app/lrf_controller_1_0_0_aarch64.eap .
+docker build --build-arg ARCH=aarch64 -t axis-lh-server:aarch64 .
+docker cp $(docker create axis-lh-server:aarch64):/opt/app/axis_lh_server_1_1_0_aarch64.eap .
 ```
 
 ## Installation
@@ -70,7 +70,7 @@ By default, the application uses:
 - **LRF Address**: 0x48
 - **Server Port**: 8080
 
-To modify these defaults, edit the `#define` statements in `lrf_controller.c`:
+To modify these defaults, edit the `#define` statements in `axis_lh_server.c`:
 
 ```c
 #define I2C_BUS 0
@@ -88,7 +88,7 @@ Reads the current distance measurement from the LRF.
 
 **Request:**
 ```bash
-curl -u admin:password http://<CAMERA_IP>/local/lrf_controller/lrf/distance
+curl -u admin:password http://<CAMERA_IP>/local/axis_lh_server/api/distance
 ```
 
 **Response (Success):**
@@ -115,7 +115,7 @@ Sends a raw command byte to the LRF and reads the response.
 curl -u admin:password -X POST \
   -H "Content-Type: application/json" \
   -d '{"cmd": 16}' \
-  http://<CAMERA_IP>/local/lrf_controller/lrf/command
+  http://<CAMERA_IP>/local/axis_lh_server/api/command
 ```
 
 **Request Body:**
@@ -144,7 +144,7 @@ Returns the connection status of the LRF device.
 
 **Request:**
 ```bash
-curl -u admin:password http://<CAMERA_IP>/local/lrf_controller/lrf/status
+curl -u admin:password http://<CAMERA_IP>/local/axis_lh_server/api/status
 ```
 
 **Response:**
@@ -162,7 +162,7 @@ curl -u admin:password http://<CAMERA_IP>/local/lrf_controller/lrf/status
 
 Check the system log for connection errors:
 ```bash
-tail -f /var/log/syslog | grep lrf_controller
+tail -f /var/log/syslog | grep axis_lh_server
 ```
 
 Common causes:
@@ -201,7 +201,7 @@ This example is a template and must be adapted to your specific LRF hardware:
 
 1. **I2C Protocol**: Modify `lrf_read_distance()` and `lrf_send_command()` in `i2c_lrf.c` to match your LRF's I2C protocol
 2. **Response Format**: Update the data parsing logic to match your device's response format
-3. **Additional Endpoints**: Add more handlers in `lrf_controller.c` for device-specific features
+3. **Additional Endpoints**: Add more handlers in `axis_lh_server.c` for device-specific features
 4. **Error Handling**: Enhance error detection for your specific use case
 
 ## License

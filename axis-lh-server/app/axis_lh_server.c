@@ -16,6 +16,10 @@
 
 #include "http_server.h"
 #include "i2c_lrf.h"
+#include "metrics.h"
+#include "health.h"
+#include "vapix.h"
+#include "log_buffer.h"
 #include <jansson.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -48,6 +52,8 @@ static void stop_application(int status) {
 }
 
 static void distance_handler(int client_fd, HttpRequest* request, gpointer user_data __attribute__((unused))) {
+    g_http_requests_total++;
+
     if (g_strcmp0(request->method, "GET") != 0) {
         http_send_error(client_fd, 405, "Method not allowed");
         return;
@@ -55,6 +61,7 @@ static void distance_handler(int client_fd, HttpRequest* request, gpointer user_
 
     float distance_m;
     if (!lrf_read_distance(lrf_device, &distance_m)) {
+        g_i2c_errors_total++;
         http_send_error(client_fd, 500, "Failed to read distance from LRF");
         return;
     }
@@ -71,6 +78,8 @@ static void distance_handler(int client_fd, HttpRequest* request, gpointer user_
 }
 
 static void command_handler(int client_fd, HttpRequest* request, gpointer user_data __attribute__((unused))) {
+    g_http_requests_total++;
+
     if (g_strcmp0(request->method, "POST") != 0) {
         http_send_error(client_fd, 405, "Method not allowed");
         return;
@@ -100,6 +109,7 @@ static void command_handler(int client_fd, HttpRequest* request, gpointer user_d
     memset(response, 0, sizeof(response));
 
     if (!lrf_send_command(lrf_device, cmd, response, sizeof(response))) {
+        g_i2c_errors_total++;
         http_send_error(client_fd, 500, "Failed to send command to LRF");
         json_decref(json);
         return;
@@ -123,6 +133,8 @@ static void command_handler(int client_fd, HttpRequest* request, gpointer user_d
 }
 
 static void status_handler(int client_fd, HttpRequest* request, gpointer user_data __attribute__((unused))) {
+    g_http_requests_total++;
+
     if (g_strcmp0(request->method, "GET") != 0) {
         http_send_error(client_fd, 405, "Method not allowed");
         return;
@@ -149,7 +161,7 @@ int main(void) {
     signal(SIGTERM, stop_application);
     signal(SIGINT, stop_application);
 
-    syslog(LOG_INFO, "LRF Controller starting on port %d", PORT);
+    syslog(LOG_INFO, "Axis LH Server starting on port %d", PORT);
 
     lrf_device = lrf_open(I2C_BUS, LRF_ADDR);
     if (!lrf_device) {
@@ -160,8 +172,14 @@ int main(void) {
                LRF_ADDR);
     }
 
+    /* Initialize VAPIX client */
+    if (vapix_init() != 0) {
+        syslog(LOG_WARNING, "VAPIX client initialization failed, temperature metrics unavailable");
+    }
+
     http_server = http_server_new(PORT);
     if (!http_server) {
+        vapix_cleanup();
         if (lrf_device) {
             lrf_close(lrf_device);
         }
@@ -171,22 +189,26 @@ int main(void) {
     http_server_add_handler(http_server, "/distance", distance_handler, NULL);
     http_server_add_handler(http_server, "/command", command_handler, NULL);
     http_server_add_handler(http_server, "/status", status_handler, NULL);
+    http_server_add_handler(http_server, "/metrics", metrics_handler, NULL);
+    http_server_add_handler(http_server, "/health", health_handler, NULL);
 
     if (!http_server_start(http_server)) {
         http_server_free(http_server);
+        vapix_cleanup();
         if (lrf_device) {
             lrf_close(lrf_device);
         }
         panic("Failed to start HTTP server");
     }
 
-    syslog(LOG_INFO, "LRF Controller server started successfully");
+    syslog(LOG_INFO, "Axis LH Server started successfully");
 
     http_server_run(http_server);
 
-    syslog(LOG_INFO, "LRF Controller shutting down");
+    syslog(LOG_INFO, "Axis LH Server shutting down");
 
     http_server_free(http_server);
+    vapix_cleanup();
 
     if (lrf_device) {
         lrf_close(lrf_device);
