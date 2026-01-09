@@ -5,20 +5,25 @@
 			"user": {
 				"groups": ["gpio"]
 			}
+		},
+		"dbus": {
+			"requiredMethods": [
+				"com.axis.HTTPConf1.VAPIXServiceAccounts1.GetCredentials"
+			]
 		}
 	},
 	"acapPackageConf": {
 		"setup": {
-			"appName": "lrf_controller",
+			"appName": "axis_lh_server",
 			"vendor": "Axis Communications",
 			"embeddedSdkVersion": "3.0",
 			"runMode": "respawn",
-			"version": "1.0.0"
+			"version": "1.1.0"
 		},
 		"configuration": {
 			"reverseProxy": [
 				{
-					"apiPath": "lrf_controller/lrf",
+					"apiPath": "axis_lh_server/api",
 					"target": "http://localhost:8080",
 					"access": "admin"
 				}
